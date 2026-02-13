@@ -1,0 +1,47 @@
+
+.navbar {
+  min-height: 80px;
+}
+
+.auth-links a {
+  color: #adb5bd;
+  text-decoration: none;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.auth-links a:hover {
+  color: #ffffff;
+}
+
+
+.list {
+  padding-left: 1.5rem;
+  font-size: 1.1rem;
+}
+
+.list li {
+  margin-bottom: 0.5rem;
+}
+
+
+.custom-alert {
+  background-color: #e0f7fa; 
+  color: #006064;         
+  padding: 15px 20px;
+  border-radius: 8px;
+  display: inline-block;    
+  font-size: 1.05rem;
+}
+
+.custom-alert code {
+  color: #d81b60;         
+  background: transparent;
+  font-weight: bold;
+}
+
+
+.btn-primary {
+  background-color: #0d6efd;
+  border: none;
+}
