@@ -1,19 +1,74 @@
-
 .navbar {
   min-height: 80px;
 }
 
+.auth-links {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0.35rem;
+  min-width: 92px;
+  min-height: 58px;
+  padding: 8px 12px 8px 16px;
+  background: #1f252c;
+}
+
 .auth-links a {
-  color: #adb5bd;
+  display: block;
+  width: 100%;
+  text-align: left;
+  color: #bfd7ea;
   text-decoration: none;
-  font-size: 0.9rem;
-  line-height: 1.4;
+  font-size: 0.95rem;
+  line-height: 1.1;
 }
 
 .auth-links a:hover {
   color: #ffffff;
 }
 
+.nav-user {
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.nav-user:hover,
+.nav-user:focus {
+  color: #ffffff;
+}
+
+main {
+  min-height: calc(100vh - 80px);
+}
+
+.page {
+  display: none;
+}
+
+.page.active {
+  display: block;
+}
+
+body.not-authenticated .role-logged-in {
+  display: none;
+}
+
+body.authenticated .role-logged-out {
+  display: none;
+}
+
+.role-admin {
+  display: none;
+}
+
+body.is-admin .dropdown-menu .role-admin {
+  display: block;
+}
+
+body.is-admin .page.role-admin.active {
+  display: block;
+}
 
 .list {
   padding-left: 1.5rem;
@@ -24,24 +79,28 @@
   margin-bottom: 0.5rem;
 }
 
-
 .custom-alert {
-  background-color: #e0f7fa; 
-  color: #006064;         
+  background-color: #e0f7fa;
+  color: #006064;
   padding: 15px 20px;
   border-radius: 8px;
-  display: inline-block;    
+  display: inline-block;
   font-size: 1.05rem;
 }
 
 .custom-alert code {
-  color: #d81b60;         
+  color: #d81b60;
   background: transparent;
   font-weight: bold;
 }
 
+@media (max-width: 576px) {
+  .navbar {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
 
-.btn-primary {
-  background-color: #0d6efd;
-  border: none;
+  .auth-links {
+    width: auto;
+  }
 }

@@ -1,0 +1,554 @@
+  if (ADMIN_ROUTES.has(route) && !isAdmin(currentUser)) {
+    showToast('Access denied. Admin only page.', 'warning');
+    navigateTo('/');
+    return;
+  }
+
+  showPage(route);
+}
+
+// =========================================================
+// A) REGISTRATION
+// =========================================================
+registerForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  clearValidation(registerForm);
+  setButtonLoading(registerSubmitButton, true, 'Signing up...');
+
+  try {
+
+  const firstNameInput = document.getElementById('regFirstName');
+  const lastNameInput = document.getElementById('regLastName');
+  const emailInput = document.getElementById('regEmail');
+  const passwordInput = document.getElementById('regPassword');
+
+  const firstName = firstNameInput.value.trim();
+  const lastName = lastNameInput.value.trim();
+  const email = emailInput.value.trim().toLowerCase();
+  const password = passwordInput.value;
+
+  // 1) Basic field validation
+  if (!firstName) {
+    setFieldErrorAndToast(firstNameInput, 'First name is required.');
+    return;
+  }
+  if (firstName.length < 6) {
+    setFieldErrorAndToast(firstNameInput, 'First name must be at least 6 characters.');
+    return;
+  }
+  if (!lastName) {
+    setFieldErrorAndToast(lastNameInput, 'Last name is required.');
+    return;
+  }
+  if (lastName.length < 6) {
+    setFieldErrorAndToast(lastNameInput, 'Last name must be at least 6 characters.');
+    return;
+  }
+  if (!email) {
+    setFieldErrorAndToast(emailInput, 'Email is required.');
+    return;
+  }
+  if (password.length < 6) {
+    setFieldErrorAndToast(passwordInput, 'Password must be at least 6 characters.');
+    return;
+  }
+
+  // 2) Email must not already exist
+  if (findAccountByEmail(email)) {
+    setFieldErrorAndToast(emailInput, 'Email already exists.');
+    return;
+  }
+
+  // 3) Save new account (starts as unverified)
+  window.db.accounts.push({
+    id: makeId('acc'),
+    firstName,
+    lastName,
+    email,
+    password,
+    role: email === 'admin@example.com' ? 'Admin' : 'User',
+    verified: false
+  });
+
+  // 4) Remember pending email and go to verify page
+  saveToStorage();
+  localStorage.setItem('unverified_email', email);
+  showToast('Account created. Please verify your email first.', 'success');
+  navigateTo('/verify-email');
+  } finally {
+    setButtonLoading(registerSubmitButton, false);
+  }
+});
+
+// =========================================================
+// B) EMAIL VERIFICATION (SIMULATED)
+// =========================================================
+simulateButton.addEventListener('click', () => {
+  setButtonLoading(simulateButton, true, 'Verifying...');
+  try {
+  const pending = localStorage.getItem('unverified_email');
+
+  // No pending email to verify
+  if (!pending) {
+    sentMessage.textContent = 'No pending verification found. Please register first.';
+    showToast('No pending verification found.', 'warning');
+    return;
+  }
+
+  // Find account for that email
+  const account = findAccountByEmail(pending);
+  if (!account) {
+    sentMessage.textContent = 'Account not found. Please register again.';
+    showToast('Account not found.', 'danger');
+    return;
+  }
+
+  // Mark as verified and save
+  account.verified = true;
+  saveToStorage();
+  localStorage.removeItem('unverified_email');
+
+  // Show success then go to login
+  verifiedMessage.classList.remove('d-none');
+  showToast('Email verified successfully. You can now log in.', 'success');
+  setTimeout(() => navigateTo('/login'), 700);
+  } finally {
+    setButtonLoading(simulateButton, false);
+  }
+});
+
+// =========================================================
+// C) LOGIN
+// =========================================================
+loginForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  clearValidation(loginForm);
+  setButtonLoading(loginSubmitButton, true, 'Logging in...');
+
+  try {
+
+  const loginEmailInput = document.getElementById('loginEmail');
+  const loginPasswordInput = document.getElementById('loginPassword');
+
+  const email = loginEmailInput.value.trim().toLowerCase();
+  const password = loginPasswordInput.value;
+
+  if (!email) {
+    setFieldErrorAndToast(loginEmailInput, 'Email is required.');
+    return;
+  }
+  if (!password) {
+    setFieldErrorAndToast(loginPasswordInput, 'Password is required.');
+    return;
+  }
+
+  // Must match email + password + verified account
+  const user = window.db.accounts.find(
+    (a) => a.email === email && a.password === password && a.verified === true
+  );
+
+  if (!user) {
+    
+    showToast('Login failed. Check your credentials or verify your email.', 'danger');
+    retur
+  }
+
+  // Save simple auth token, set auth state, go to profile
+  loginMessage.innerHTML = '';
+  localStorage.setItem('auth_token', user.email);
+  setAuthState(true, user);
+  showToast('Login successful. Welcome back!', 'success');
+  navigateTo('/profile');
+  } finally {
+    setButtonLoading(loginSubmitButton, false);
+  }
+});
+
+// =========================================================
+// E) LOGOUT
+// =========================================================
+logoutButton.addEventListener('click', (event) => {
+  event.preventDefault();
+  localStorage.removeItem('auth_token');
+  setAuthState(false);
+  showToast('You have been logged out.', 'success');
+  navigateTo('/');
+});
+
+if (editProfileButton) {
+  editProfileButton.addEventListener('click', () => {
+    showToast('Edit Profile is not implemented yet.', 'warning');
+    alert('Edit Profile is not implemented yet.');
+  });
+}
+
+// =========================================================
+// REQUESTS
+// =========================================================
+if (newRequestButton) {
+  newRequestButton.addEventListener('click', () => {
+    resetRequestForm();
+    showToast('Create your new request below.', 'info');
+  });
+}
+
+if (createOneButton) {
+  createOneButton.addEventListener('click', () => {
+    resetRequestForm();
+    showToast('Create your first request below.', 'info');
+  });
+}
+
+if (addRequestItemButton) {
+  addRequestItemButton.addEventListener('click', addRequestItemRow);
+}
+
+if (requestItemsContainer) {
+  requestItemsContainer.addEventListener('click', (event) => {
+    const removeButton = event.target.closest('.btn-remove-request-item');
+    if (!removeButton) return;
+
+    const rows = requestItemsContainer.querySelectorAll('.request-item-row');
+    if (rows.length <= 1) {
+      return;
+    }
+
+    removeButton.closest('.request-item-row').remove();
+  });
+}
+
+if (submitRequestButton) {
+  submitRequestButton.addEventListener('click', () => {
+    setButtonLoading(submitRequestButton, true, 'Submitting...');
+    try {
+    if (!currentUser) return;
+
+    const rows = Array.from(requestItemsContainer.querySelectorAll('.request-item-row'));
+    const items = rows
+      .map((row) => {
+        const name = row.querySelector('.req-item-name').value.trim();
+        const qtyRaw = row.querySelector('.req-item-qty').value;
+        const qty = Number.parseInt(qtyRaw, 10);
+        return { name, qty: Number.isNaN(qty) || qty < 1 ? 1 : qty };
+      })
+      .filter((item) => item.name);
+
+    if (!items.length) {
+      showToast('Please add at least one item.', 'danger');
+      return;
+    }
+
+    window.db.requests.push({
+      type: requestTypeSelect.value,
+      items,
+      status: 'Pending',
+      date: new Date().toLocaleDateString(),
+      employeeEmail: currentUser.email
+    });
+
+    saveToStorage();
+    renderMyRequests();
+    resetRequestForm();
+    showToast('Request submitted successfully.', 'success');
+
+    if (window.bootstrap && requestModalElement) {
+      const modal = window.bootstrap.Modal.getInstance(requestModalElement);
+      if (modal) modal.hide();
+    }
+    } finally {
+      setButtonLoading(submitRequestButton, false);
+    }
+  });
+}
+
+// =========================================================
+// ACCOUNTS CRUD (Admin)
+// =========================================================
+if (addAccountButton) {
+  addAccountButton.addEventListener('click', () => {
+    resetAccountForm();
+    showToast('Ready to add a new account.', 'info');
+  });
+}
+
+if (accountForm) {
+  accountForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    clearValidation(accountForm);
+    setButtonLoading(accountSaveButton, true, 'Saving...');
+
+    try {
+
+    const firstName = accFirstNameInput.value.trim();
+    const lastName = accLastNameInput.value.trim();
+    const email = accEmailInput.value.trim().toLowerCase();
+    const password = accPasswordInput.value;
+    const role = accRoleSelect.value;
+    const verified = accVerifiedCheckbox.checked;
+
+    if (!firstName || !lastName || !email) {
+      if (!firstName) setFieldErrorAndToast(accFirstNameInput, 'First name is required.');
+      if (!lastName) setFieldErrorAndToast(accLastNameInput, 'Last name is required.');
+      if (!email) setFieldErrorAndToast(accEmailInput, 'Email is required.');
+      return;
+    }
+
+    const duplicate = findAccountByEmail(email);
+    if (duplicate && duplicate.id !== editingAccountId) {
+      setFieldErrorAndToast(accEmailInput, 'Email already exists.');
+      return;
+    }
+
+    if (editingAccountId) {
+      const account = findAccountById(editingAccountId);
+      if (!account) return;
+
+      account.firstName = firstName;
+      account.lastName = lastName;
+      account.email = email;
+      account.role = email === 'admin@example.com' ? 'Admin' : role;
+      account.verified = verified;
+
+      if (password) {
+        if (password.length < 6) {
+          setFieldErrorAndToast(accPasswordInput, 'Password must be at least 6 characters.');
+          return;
+        }
+        account.password = password;
+      }
+
+      if (currentUser && currentUser.id === account.id) {
+        localStorage.setItem('auth_token', account.email);
+        setAuthState(true, account);
+      }
+    } else {
+      if (password.length < 6) {
+        setFieldErrorAndToast(accPasswordInput, 'Password must be at least 6 characters.');
+        return;
+      }
+
+      window.db.accounts.push({
+        id: makeId('acc'),
+        firstName,
+        lastName,
+        email,
+        password,
+        role: email === 'admin@example.com' ? 'Admin' : role,
+        verified
+      });
+    }
+
+    saveToStorage();
+    renderAccountsList();
+    renderEmployeesTable();
+    resetAccountForm();
+    showToast('Account saved successfully.', 'success');
+    } finally {
+      setButtonLoading(accountSaveButton, false);
+    }
+  });
+}
+
+if (accountsTbody) {
+  accountsTbody.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+
+    const account = findAccountById(button.dataset.id);
+    if (!account) return;
+
+    if (button.dataset.action === 'edit-account') {
+      editingAccountId = account.id;
+      accFirstNameInput.value = account.firstName;
+      accLastNameInput.value = account.lastName;
+      accEmailInput.value = account.email;
+      accPasswordInput.value = '';
+      accRoleSelect.value = account.role;
+      accVerifiedCheckbox.checked = account.verified;
+      showToast('Editing account details.', 'info');
+      return;
+    }
+
+    if (button.dataset.action === 'reset-password') {
+      const next = prompt('Enter new password (min 6 chars):', '');
+      if (next === null) return;
+      if (next.length < 6) {
+        showToast('Password must be at least 6 characters.', 'danger');
+        return;
+      }
+      account.password = next;
+      saveToStorage();
+      showToast('Password updated successfully.', 'success');
+      return;
+    }
+
+    if (button.dataset.action === 'delete-account') {
+      if (currentUser && account.id === currentUser.id) {
+        showToast('You cannot delete your own account while logged in.', 'warning');
+        return;
+      }
+
+      if (!confirm(`Delete account ${account.email}?`)) return;
+
+      window.db.accounts = window.db.accounts.filter((a) => a.id !== account.id);
+      window.db.employees = window.db.employees.filter((e) => e.userId !== account.id);
+      saveToStorage();
+      renderAccountsList();
+      renderEmployeesTable();
+      showToast('Account deleted successfully.', 'success');
+    }
+  });
+}
+
+// =========================================================
+// DEPARTMENTS (Admin)
+// =========================================================
+if (addDepartmentButton) {
+  addDepartmentButton.addEventListener('click', () => {
+    alert('Not implemented');
+  });
+}
+
+if (departmentsTbody) {
+  departmentsTbody.addEventListener('click', (event) => {
+    const target = event.target.closest('button');
+    if (!target) return;
+    showToast('Department edit/delete is not implemented yet.', 'warning');
+  });
+}
+
+// =========================================================
+// EMPLOYEES CRUD (Admin)
+// =========================================================
+if (addEmployeeButton) {
+  addEmployeeButton.addEventListener('click', () => {
+    resetEmployeeForm();
+    showToast('Ready to add a new employee.', 'info');
+  });
+}
+
+if (employeeForm) {
+  employeeForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    clearValidation(employeeForm);
+    setButtonLoading(employeeSaveButton, true, 'Saving...');
+
+    try {
+
+    const employeeCode = empCodeInput.value.trim();
+    const userEmail = empEmailInput.value.trim().toLowerCase();
+    const position = empPositionInput.value.trim();
+    const departmentId = empDeptSelect.value;
+    const hireDate = empHireDateInput.value;
+
+    if (!employeeCode || !userEmail || !position || !departmentId || !hireDate) {
+      if (!employeeCode) setFieldErrorAndToast(empCodeInput, 'Employee ID is required.');
+      if (!userEmail) setFieldErrorAndToast(empEmailInput, 'User email is required.');
+      if (!position) setFieldErrorAndToast(empPositionInput, 'Position is required.');
+      if (!departmentId) setFieldErrorAndToast(empDeptSelect, 'Department is required.');
+      if (!hireDate) setFieldErrorAndToast(empHireDateInput, 'Hire date is required.');
+      return;
+    }
+
+    const account = findAccountByEmail(userEmail);
+    if (!account) {
+      setFieldErrorAndToast(empEmailInput, 'User email must match an existing account.');
+      return;
+    }
+
+    const duplicateCode = window.db.employees.find(
+      (e) => e.employeeCode === employeeCode && e.id !== editingEmployeeId
+    );
+    if (duplicateCode) {
+      setFieldErrorAndToast(empCodeInput, 'Employee ID already exists.');
+      return;
+    }
+
+    if (editingEmployeeId) {
+      const employee = findEmployeeById(editingEmployeeId);
+      if (!employee) return;
+
+      employee.employeeCode = employeeCode;
+      employee.userId = account.id;
+      employee.position = position;
+      employee.departmentId = departmentId;
+      employee.hireDate = hireDate;
+    } else {
+      window.db.employees.push({
+        id: makeId('emp'),
+        employeeCode,
+        userId: account.id,
+        position,
+        departmentId,
+        hireDate
+      });
+    }
+
+    saveToStorage();
+    renderEmployeesTable();
+    resetEmployeeForm();
+    showToast('Employee saved successfully.', 'success');
+    } finally {
+      setButtonLoading(employeeSaveButton, false);
+    }
+  });
+}
+
+if (employeesTbody) {
+  employeesTbody.addEventListener('click', (event) => {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+
+    const employee = findEmployeeById(button.dataset.id);
+    if (!employee) return;
+
+    if (button.dataset.action === 'edit-employee') {
+      editingEmployeeId = employee.id;
+      const account = findAccountById(employee.userId);
+
+      empCodeInput.value = employee.employeeCode;
+      empEmailInput.value = account ? account.email : '';
+      empPositionInput.value = employee.position;
+      populateDepartmentDropdown(employee.departmentId);
+      empHireDateInput.value = employee.hireDate;
+      showToast('Editing employee details.', 'info');
+      return;
+    }
+
+    if (button.dataset.action === 'delete-employee') {
+      if (!confirm(`Delete employee ${employee.employeeCode}?`)) return;
+
+      window.db.employees = window.db.employees.filter((e) => e.id !== employee.id);
+      saveToStorage();
+      renderEmployeesTable();
+      showToast('Employee deleted successfully.', 'success');
+    }
+  });
+}
+
+// =========================================================
+// APP START
+// =========================================================
+loadFromStorage();
+
+const token = localStorage.getItem('auth_token');
+const tokenUser = token ? findAccountByEmail(token) : null;
+
+if (tokenUser && tokenUser.verified) {
+  setAuthState(true, tokenUser);
+} else {
+  localStorage.removeItem('auth_token');
+  setAuthState(false);
+}
+
+renderAdminTables();
+resetRequestForm();
+resetAccountForm();
+resetEmployeeForm();
+
+window.addEventListener('hashchange', handleRouting);
+if (!window.location.hash) {
+  navigateTo('/');
+} else {
+  handleRouting();
+}
