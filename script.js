@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 const STORAGE_KEY = 'ipt_demo_v1';
 
 const pages = document.querySelectorAll('.page');
@@ -1097,3 +1098,4 @@ if (!window.location.hash) {
 } else {
   handleRouting();
 }
+
