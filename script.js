@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 const STORAGE_KEY = 'ipt_demo_v1';
 
 const pages = document.querySelectorAll('.page');
@@ -168,6 +167,93 @@ function setFieldErrorAndToast(input, message) {
   showToast(message, 'danger');
 }
 
+// Map API user into the shape used by this UI
+function mapApiUser(apiUser) {
+  const username = apiUser && apiUser.username ? String(apiUser.username) : '';
+  const role = apiUser && apiUser.role ? String(apiUser.role) : 'user';
+  return {
+    id: apiUser && apiUser.id ? apiUser.id : null,
+    username,
+    role,
+    firstName: username,
+    lastName: '',
+    email: username
+  };
+}
+
+function showDashboard(apiUser, options = {}) {
+  const { showToastMessage = true, navigate = true } = options;
+  const mappedUser = mapApiUser(apiUser);
+  loginMessage.innerHTML = '';
+  setAuthState(true, mappedUser);
+  if (showToastMessage) {
+    showToast('Login successful. Welcome back!', 'success');
+  }
+  if (navigate) {
+    navigateTo('/profile');
+  }
+}
+
+// Login with API 
+async function login(username, password) {
+  try {
+    const response = await fetch('http://localhost:3000/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      sessionStorage.setItem('authToken', data.token);
+      sessionStorage.setItem('user', JSON.stringify(data.user));
+      showDashboard(data.user);
+    } else {
+      showToast(`Login failed: ${data.error || 'Unknown error'}`, 'danger');
+    }
+  } catch (err) {
+    showToast('Network error', 'danger');
+  }
+}
+
+function getAuthHeader() {
+  const token = sessionStorage.getItem('authToken');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function loadAdminDashboard() {
+  const res = await fetch('http://localhost:3000/api/admin/dashboard', {
+    headers: getAuthHeader()
+  });
+  if (res.ok) {
+    const data = await res.json();
+    document.getElementById('content').innerText = data.message;
+  } else {
+    document.getElementById('content').innerText = 'Access denied!';
+  }
+}
+
+
+function restoreSession() {
+  const token = sessionStorage.getItem('authToken');
+  const rawUser = sessionStorage.getItem('user');
+
+  if (!token || !rawUser) {
+    setAuthState(false);
+    return;
+  }
+
+  try {
+    const user = JSON.parse(rawUser);
+    showDashboard(user, { showToastMessage: false, navigate: false });
+  } catch {
+    sessionStorage.removeItem('authToken');
+    sessionStorage.removeItem('user');
+    setAuthState(false);
+  }
+}
+
 // First-time default data when storage is empty/corrupt
 function seedDb() {
   return {
@@ -258,7 +344,7 @@ function isAdmin(user) {
   return Boolean(user && String(user.role).toLowerCase() === 'admin');
 }
 
-// Turn login state ON/OFF and update navbar/body classes
+// Turn    state ON/OFF and update navbar/body classes
 function setAuthState(isAuth, user = null) {
   // If logged in, keep user object. If logged out, clear it.
   if (isAuth) {
@@ -502,7 +588,13 @@ function normalizeHash(hashInput) {
 
 // Change URL hash route
 function navigateTo(hash) {
-  window.location.hash = `#${normalizeHash(hash)}`;
+  const nextHash = `#${normalizeHash(hash)}`;
+  if (window.location.hash === nextHash) {
+    handleRouting();
+    return;
+  }
+  window.location.hash = nextHash;
+  setTimeout(handleRouting, 0);
 }
 
 // Show one page section and run page-specific render
@@ -562,9 +654,17 @@ function handleRouting() {
   showPage(route);
 }
 
+// Route ASAP even if later code throws
+window.addEventListener('hashchange', handleRouting);
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', handleRouting);
+} else {
+  handleRouting();
+}
+
 
 // REGISTRATION
-registerForm.addEventListener('submit', (event) => {
+registerForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   clearValidation(registerForm);
   setButtonLoading(registerSubmitButton, true, 'Signing up...');
@@ -613,7 +713,24 @@ registerForm.addEventListener('submit', (event) => {
     return;
   }
 
-  // Save new account (starts as unverified)
+  // Register with backend so login will work
+  try {
+    const res = await fetch('http://localhost:3000/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: email, password })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      showToast(`Registration failed: ${data.error || 'Unknown error'}`, 'danger');
+      return;
+    }
+  } catch {
+    showToast('Network error while registering.', 'danger');
+    return;
+  }
+
+  // Save new account locally (starts as unverified)
   window.db.accounts.push({
     id: makeId('acc'),
     firstName,
@@ -671,7 +788,7 @@ simulateButton.addEventListener('click', () => {
 
 
 // LOGIN
-loginForm.addEventListener('submit', (event) => {
+loginForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   clearValidation(loginForm);
   setButtonLoading(loginSubmitButton, true, 'Logging in...');
@@ -693,23 +810,8 @@ loginForm.addEventListener('submit', (event) => {
     return;
   }
 
-  // Must match email + password + verified account
-  const user = window.db.accounts.find(
-    (a) => a.email === email && a.password === password && a.verified === true
-  );
-
-  if (!user) {
-    
-    showToast('Login failed. Check your credentials or verify your email.', 'danger');
-    retur
-  }
-
-  // Save simple auth token, set auth state, go to profile
-  loginMessage.innerHTML = '';
-  localStorage.setItem('auth_token', user.email);
-  setAuthState(true, user);
-  showToast('Login successful. Welcome back!', 'success');
-  navigateTo('/profile');
+  // Call backend API login (replaces old localStorage login)
+  await login(email, password);
   } finally {
     setButtonLoading(loginSubmitButton, false);
   }
@@ -719,7 +821,8 @@ loginForm.addEventListener('submit', (event) => {
 // LOGOUT
 logoutButton.addEventListener('click', (event) => {
   event.preventDefault();
-  localStorage.removeItem('auth_token');
+  sessionStorage.removeItem('authToken');
+  sessionStorage.removeItem('user');
   setAuthState(false);
   showToast('You have been logged out.', 'success');
   navigateTo('/');
@@ -868,7 +971,6 @@ if (accountForm) {
       }
 
       if (currentUser && currentUser.id === account.id) {
-        localStorage.setItem('auth_token', account.email);
         setAuthState(true, account);
       }
     } else {
@@ -1076,26 +1178,18 @@ if (employeesTbody) {
 
 // Start
 loadFromStorage();
-
-const token = localStorage.getItem('auth_token');
-const tokenUser = token ? findAccountByEmail(token) : null;
-
-if (tokenUser && tokenUser.verified) {
-  setAuthState(true, tokenUser);
-} else {
-  localStorage.removeItem('auth_token');
-  setAuthState(false);
-}
+restoreSession();
+refreshRoleUI();
 
 renderAdminTables();
 resetRequestForm();
 resetAccountForm();
 resetEmployeeForm();
 
-window.addEventListener('hashchange', handleRouting);
-if (!window.location.hash) {
-  navigateTo('/');
-} else {
-  handleRouting();
-}
-
+// Ensure hash navigation always triggers routing (even if hash doesn't change)
+document.addEventListener('click', (event) => {
+  const link = event.target.closest('a[href^="#"]');
+  if (!link) return;
+  event.preventDefault();
+  navigateTo(link.getAttribute('href'));
+});
