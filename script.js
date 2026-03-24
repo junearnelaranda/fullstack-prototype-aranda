@@ -219,18 +219,25 @@ async function login(username, password) {
 
 function getAuthHeader() {
   const token = sessionStorage.getItem('authToken');
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return token ? { 'Authorization': `Bearer ${token}` } : {};
 }
 
 async function loadAdminDashboard() {
-  const res = await fetch('http://localhost:3000/api/admin/dashboard', {
-    headers: getAuthHeader()
-  });
-  if (res.ok) {
-    const data = await res.json();
-    document.getElementById('content').innerText = data.message;
-  } else {
-    document.getElementById('content').innerText = 'Access denied!';
+  const content = document.getElementById('content');
+
+  try {
+    const res = await fetch('http://localhost:3000/api/admin/dashboard', {
+      headers: getAuthHeader()
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      content.innerText = data.message;
+    } else {
+     document.getElementById('content').innerText = 'Access Denied!';
+    }
+  } catch (err) {
+    document.getElementById('content').innerText = 'Error loading data.';
   }
 }
 
